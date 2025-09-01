@@ -1,0 +1,47 @@
+# OS-specific files
+.DS_Store
+Thumbs.db
+Desktop.ini
+Icon?
+
+# Node/Web projects (future-proof)
+node_modules/
+dist/
+build/
+out/
+.tmp/
+tmp/
+temp/
+.cache/
+.parcel-cache/
+.eslintcache
+*.tsbuildinfo
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Coverage
+coverage/
+.nyc_output/
+
+# Editors/IDEs
+.vscode/
+.idea/
+.history/
+*.swp
+*.swo
+*~
+
+# Env files (keep examples)
+.env
+.env.*
+!.env.example
+
+# Misc
+*.orig
+*.rej

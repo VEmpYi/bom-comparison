@@ -99,6 +99,23 @@
             .slide-up-leave-to {
                 max-height: 0;
             }
+
+            /* 兼容性补充：标准属性以配合第三方/旧前缀样式 */
+            a,
+            area,
+            button,
+            input,
+            label,
+            select,
+            summary,
+            textarea,
+            [tabindex] {
+                touch-action: manipulation;
+            }
+
+            html {
+                text-size-adjust: 100%;
+            }
         </style>
     </head>
 
@@ -183,9 +200,10 @@
             <!-- 对比任务开关 + 图例 + 导出按钮 -->
             <div class="mb-4 flex items-center justify-between gap-4 flex-wrap">
                 <div class="flex items-center gap-3 flex-wrap">
-                    <button type="button" @click="toggleCompare" :disabled="selectedFiles.length !== 2 || compareBusy"
+                    <button type="button" @click="toggleCompare"
+                        :disabled="(selectedFiles.length !== 2 && !compareMode) || compareBusy"
                         class="px-3 py-1.5 rounded text-sm font-medium shadow transition flex items-center gap-2"
-                        :class="(selectedFiles.length !== 2) ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : (compareBusy ? 'bg-gray-400 text-white cursor-wait' : (compareMode ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-blue-600 text-white hover:bg-blue-700'))">
+                        :class="compareBusy ? 'bg-gray-400 text-white cursor-wait' : (compareMode ? 'bg-red-600 text-white hover:bg-red-700' : (selectedFiles.length !== 2 ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'))">
                         <i v-if="compareBusy" class="fa-solid fa-spinner fa-spin"></i>
                         <i v-else :class="compareMode ? 'fa-solid fa-toggle-on' : 'fa-solid fa-toggle-off'"></i>
                         <span>{{ compareBusy ? '分析中...' : (compareMode ? '关闭对比' : '启动对比') }}</span>
@@ -356,7 +374,7 @@
             <teleport to="body">
                 <div
                     :class="['fixed bottom-0 right-0 z-[9999] transform transition-all duration-300', showTop ? 'translate-x-0 opacity-100' : 'translate-x-24 opacity-0 pointer-events-none']">
-                    <button @click="scrollToTop"
+                    <button @click="scrollToTop" aria-label="回到顶部" title="回到顶部"
                         class="w-8 h-8 rounded-lg bg-blue-600 text-white shadow-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-300 flex items-center justify-center">
                         <i class="fa-solid fa-arrow-up text-xs"></i>
                     </button>
@@ -373,7 +391,7 @@
                         const containerVisible = ref(false);
                         const displayedSelectedFiles = ref([]);
                         const previewWrap = ref(null);
-                        const subtitle = ref('V2.4 - HTML 版');
+                        const subtitle = ref('V2.5 - 网页版');
                         const loading = ref(false);
                         const compareMode = ref(false);
                         const compareBusy = ref(false);
@@ -386,10 +404,12 @@
                         // 颜色筛选：每个文件最多选一种颜色分类（再次点击清除）
                         const colorFilters = reactive({}); // { [fileName]: 'red'|'orange'|'blue'|'green' }
                         const COLOR_TO_PRIORITY = { red: 0, orange: 1, blue: 2, green: 3 };
+                        // 切换某个文件的颜色分类筛选（同一文件仅可选一种；再次点击关闭）
                         function toggleColorFilter(fileName, color) {
                             if (!compareMode.value || selectedFiles.value.length !== 2) return;
                             colorFilters[fileName] = (colorFilters[fileName] === color) ? undefined : color;
                         }
+                        // 根据是否选中返回色块按钮的样式类名
                         function badgeClass(fileName, color) {
                             const active = colorFilters[fileName] === color;
                             const base = 'text-[10px] px-1.5 py-0.5 rounded min-w-[1.75rem] text-center border transition';
@@ -480,6 +500,7 @@
                                 setTimeout(updateBackTop, 0);
                             }
                         };
+                        // 回到页面顶部（平滑滚动）
                         function scrollToTop() { window.scrollTo({ top: 0, behavior: 'smooth' }); }
                         onMounted(() => {
                             window.addEventListener('scroll', updateBackTop, { passive: true });
@@ -549,6 +570,7 @@
                             displayedSelectedFiles.value = [...newVal];
                         }, { deep: true });
 
+                        // 预览容器过渡离开后清空内部内容（当已无选中文件时）
                         function onPreviewContainerAfterLeave() {
                             // 外层收起完毕后再清空内层内容
                             if ((selectedFiles.value || []).length === 0) {
@@ -556,6 +578,7 @@
                             }
                         }
 
+                        // 计算卡片宽度：单卡 100%，双卡等分
                         function cardWidth(idx, fileName) {
                             const len = displayedSelectedFiles.value.length;
                             if (len === 1) return '100%';
@@ -563,12 +586,13 @@
                             return 'calc((100% - 1.5rem) / 2)';
                         }
 
+                        // 返回卡片样式（宽度、折行控制等）
                         function cardStyle(idx, fileName) {
                             const w = cardWidth(idx, fileName);
                             return { width: w, flexBasis: w, flexShrink: 0, minWidth: 0, overflow: 'hidden' };
                         }
 
-                        // 文件解析
+                        // 文件解析与数据装载入口
                         async function handleFiles(e) {
                             // 导入流程总览（新版规则）：
                             // 1) 生成唯一显示名（允许重复导入，name, name (2), name (3)...）
@@ -774,8 +798,10 @@
                                         console.log('原始数据行数:', rows.length, '字段:', columns);
                                         // 清洗逻辑（与新规则一致）：
                                         // 1) 表头已在解析阶段按“第一列=令牌”识别，并已移除误入表头行；合并行与第一列以 Design 开头的行也已删除。
-                                        // 2) PN 填充：若“零件号”为空且“供应商零件号”也为空 -> 删除；若“零件号”为空但“供应商零件号”有值 -> 将“零件号”填为【供应商零件号】。
-                                        //    注：中文中括号用于与真实 PN 区分，避免二义性。
+                                        // 2) 对“零件号/供应商零件号”做统一规整 + PN 填充：
+                                        //    - 仅对这两列进行：去除不可见字符(零宽/软连字符等)；去除多余空白，再 trim。
+                                        //    - 若“零件号”为空且“供应商零件号”也为空 -> 删除该行；
+                                        //    - 若“零件号”为空但“供应商零件号”有值 -> 将“零件号”填为【供应商零件号】。
                                         try {
                                             const hasPN = columns.includes('零件号');
                                             const hasSPN = columns.includes('供应商零件号');
@@ -784,20 +810,36 @@
                                                 columns = ['零件号', ...columns.filter(c => c !== '零件号')];
                                             }
                                             if (hasPN || hasSPN) {
+                                                // 仅用于“零件号/供应商零件号”的规整函数
+                                                const normalizeKey = (v) => {
+                                                    if (v == null) return '';
+                                                    let s = String(v);
+                                                    // 删除零宽字符与软连字符：U+200B..U+200D, U+FEFF, U+00AD
+                                                    s = s.replace(/[\u200B-\u200D\uFEFF\u00AD]/g, '');
+                                                    // 删除所有空白（空格/回车/制表/不间断空格等），不保留
+                                                    s = s.replace(/[\s\u00A0]+/g, '').trim();
+                                                    return s;
+                                                };
                                                 const kept = [];
                                                 rows.forEach(r => {
-                                                    const pn = String((r && r['零件号']) ?? '').trim();
-                                                    const spn = String((r && r['供应商零件号']) ?? '').trim();
+                                                    // 先对两列做规整（仅这两列）
+                                                    const pn0 = (r && r['零件号']);
+                                                    const spn0 = (r && r['供应商零件号']);
+                                                    const pn = normalizeKey(pn0);
+                                                    const spn = normalizeKey(spn0);
+                                                    r['零件号'] = pn; // 确保“零件号”列写回为规整后的值
+                                                    if (hasSPN && ('供应商零件号' in r)) r['供应商零件号'] = spn;
+
                                                     if (!pn) {
                                                         if (!spn) {
                                                             // 两者都空：丢弃
                                                             return;
                                                         }
-                                                        // 仅PN空：填充为【供应商零件号】
+                                                        // 仅 PN 为空：用【供应商零件号】填充
                                                         r['零件号'] = `【${spn}】`;
                                                     }
                                                     // 确保空列字段存在
-                                                    if (!('零件号' in r)) r['零件号'] = pn;
+                                                    if (!('零件号' in r)) r['零件号'] = r['零件号'] || pn;
                                                     kept.push(r);
                                                 });
                                                 rows = kept;
@@ -902,6 +944,7 @@
                         }
 
                         // 删除文件
+                        // 从列表与选中集合中移除文件
                         function removeFile(idx) {
                             if (idx < 0 || idx >= fileList.length) return;
                             const name = fileList[idx].name;
@@ -912,7 +955,7 @@
                             if (selIdx !== -1) selectedFiles.value.splice(selIdx, 1);
                         }
 
-                        // 点击文件条目切换预览（最多2个）
+                        // 点击文件条目切换预览（最多保留2个）
                         function togglePreviewFile(name, status) {
                             if (status === 'error') return;
                             const i = selectedFiles.value.indexOf(name);
@@ -928,6 +971,7 @@
                         }
 
                         // 复选框选择逻辑（支持直接点击label选择），当选择第三个时替换最早一个
+                        // 复选框切换文件是否选中；超出 2 个时替换最早选中的
                         function onFileCheckboxChange(name, checked, status) {
                             if (status === 'error') return;
                             const i = selectedFiles.value.indexOf(name);
@@ -944,6 +988,7 @@
                         }
 
                         // 获取表格
+                        // 根据显示名获取表对象（columns、data 等）
                         function getTable(name) {
                             const t = tables.find(t => t.name === name);
                             if (!t || !t.columns || !t.data) {
@@ -958,12 +1003,14 @@
                         const dropdownPositions = reactive({}); // { [key]: { top, left } }
                         const openDropdownKey = ref('');
 
+                        // 获取筛选面板的临时状态对象（不存在则初始化）
                         function keyOf(fileName, col) {
                             if (!filterUI[fileName]) filterUI[fileName] = {};
                             if (!filterUI[fileName][col]) filterUI[fileName][col] = { open: false, search: '', temp: new Set() };
                             return filterUI[fileName][col];
                         }
 
+                        // 打开/关闭列筛选下拉面板，并计算定位
                         function toggleFilterDropdown(fileName, col, evt) {
                             const k = keyOf(fileName, col);
                             k.open = !k.open;
@@ -980,15 +1027,19 @@
                                 openDropdownKey.value = '';
                             }
                         }
+                        // 关闭列筛选面板
                         function closeDropdown(fileName, col) {
                             const k = keyOf(fileName, col);
                             k.open = false;
                             if (openDropdownKey.value === `${fileName}__${col}`) openDropdownKey.value = '';
                         }
+                        // 判断列筛选面板是否打开
                         function isDropdownOpen(fileName, col) { return !!(filterUI[fileName] && filterUI[fileName][col] && filterUI[fileName][col].open); }
 
+                        // 获取列筛选的临时状态（含搜索与临时勾选）
                         function getFilterState(fileName, col) { return keyOf(fileName, col); }
 
+                        // 计算下拉筛选面板的 fixed 定位样式
                         function dropdownStyle(fileName, col) {
                             const key = `${fileName}__${col}`;
                             const pos = dropdownPositions[key] || { top: 0, left: 0 };
@@ -1003,6 +1054,7 @@
                             return `top:${top}px;left:${left}px;`;
                         }
 
+                        // 收集指定列的去重值列表（基于当前表数据，不受列筛选影响）
                         function collectDistinctValues(fileName, col) {
                             const table = getTable(fileName);
                             const set = new Set();
@@ -1010,6 +1062,7 @@
                             return Array.from(set);
                         }
 
+                        // 在去重值基础上应用搜索过滤并排序（供下拉面板显示）
                         function filteredDistinctValues(fileName, col) {
                             const state = getFilterState(fileName, col);
                             const search = (state.search || '').toLowerCase();
@@ -1019,18 +1072,23 @@
                                 .sort((a, b) => collator.compare(a, b));
                         }
 
+                        // 判断值是否在临时勾选集合中
                         function isValueChecked(fileName, col, val) { return getFilterState(fileName, col).temp.has(String(val ?? '')); }
+                        // 切换下拉项的临时勾选状态
                         function onToggleValue(fileName, col, val, checked) {
                             const state = getFilterState(fileName, col);
                             const key = String(val ?? '');
                             if (checked) state.temp.add(key); else state.temp.delete(key);
                         }
+                        // 勾选当前列的全部可选值
                         function selectAllValues(fileName, col) {
                             const state = getFilterState(fileName, col);
                             state.temp = new Set(collectDistinctValues(fileName, col).map(v => String(v ?? '')));
                         }
+                        // 清除当前列的全部勾选值
                         function clearAllValues(fileName, col) { getFilterState(fileName, col).temp = new Set(); }
 
+                        // 应用列筛选（将临时勾选写入正式筛选集合）
                         function applyFilter(fileName, col) {
                             if (!activeFilters[fileName]) activeFilters[fileName] = {};
                             activeFilters[fileName][col] = new Set(Array.from(getFilterState(fileName, col).temp));
@@ -1038,10 +1096,12 @@
                             console.log('应用筛选:', fileName, col, Array.from(activeFilters[fileName][col]));
                         }
 
+                        // 判断某列是否存在有效的筛选条件
                         function isColumnFiltered(fileName, col) {
                             return !!(activeFilters[fileName] && activeFilters[fileName][col] && activeFilters[fileName][col].size > 0);
                         }
 
+                        // 文件是否存在任意列筛选
                         function hasActiveFilters(fileName) {
                             const f = activeFilters[fileName] || {};
                             return Object.values(f).some(set => set && set.size > 0);
@@ -1062,6 +1122,7 @@
                             })) : rows;
                         }
 
+                        // 综合列筛选与颜色分类筛选，返回最终用于渲染的行
                         function filteredRows(fileName) {
                             const table = getTable(fileName);
                             const cols = table.columns || [];
@@ -1086,6 +1147,7 @@
                             return result;
                         }
 
+                        // 开关对比模式；开启时短暂进入忙碌态
                         async function toggleCompare() {
                             if (compareMode.value) {
                                 // 关闭对比：直接退出
@@ -1104,17 +1166,20 @@
                             }
                         }
 
+                        // 获取与当前文件成对的另一个文件名（仅在选择了两个文件时有效）
                         function getOtherFileName(current) {
                             if (selectedFiles.value.length !== 2) return null;
                             return selectedFiles.value[0] === current ? selectedFiles.value[1] : selectedFiles.value[0];
                         }
 
+                        // 将数量字段转换为数字（兼容千位分隔逗号，空值为 0）
                         function toNumber(v) {
                             if (v == null || v === '') return 0;
                             const n = parseFloat(String(v).replace(/,/g, ''));
                             return isNaN(n) ? 0 : n;
                         }
 
+                        // 为对表构建按“零件号/供应商零件号”的快速索引
                         function buildIndexes(otherName) {
                             const other = getTable(otherName);
                             const byPN = new Map();
@@ -1131,6 +1196,7 @@
                         }
 
                         // 构建“交叉索引”：用于按你的定义计算“橙色”（双方均为红的供应商零件号交集）
+                        // 构建交叉索引：用于判断橙色（本表红、且供应商号落在对表红集合内）与蓝绿
                         function buildCrossIndex(currentName) {
                             const otherName = getOtherFileName(currentName);
                             const current = getTable(currentName);
@@ -1162,6 +1228,7 @@
                             return { otherByPN, otherRedSupplierSet };
                         }
 
+                        // 计算一行的对比分类优先级：红(0)/橙(1)/蓝(2)/绿(3)
                         function categoryPriority(fileName, row) {
                             if (!compareMode.value) return 3; // 默认当作绿色
                             const otherName = getOtherFileName(fileName);
@@ -1182,6 +1249,7 @@
                             return 2; // 蓝
                         }
 
+                        // 根据分类优先级返回表格行的背景色 class
                         function rowBgClass(fileName, row) {
                             const p = categoryPriority(fileName, row);
                             switch (p) {
@@ -1193,6 +1261,7 @@
                             }
                         }
 
+                        // 统计当前文件在四种分类下的行数（基于基础列筛选，不含颜色筛选）
                         function categoryCounts(fileName) {
                             const counts = { red: 0, orange: 0, blue: 0, green: 0 };
                             const table = getTable(fileName);
@@ -1218,6 +1287,7 @@
                         }
 
                         // 计算“导线数量差值”列表（蓝色类且类型为导线/WIRE/线束），返回 [{ pn, type, q1, q2, diff }]
+                        // 计算导线类的数量差值列表（仅蓝色，即 PN 命中且数量不同）
                         function wiresDiff(fileName) {
                             if (!compareMode.value || selectedFiles.value.length !== 2) return [];
                             const table = getTable(fileName);
@@ -1242,7 +1312,8 @@
                             return list;
                         }
 
-                        // 导出：支持单表/双表，符合VBA格式与配色；对比时生成“对比结果”页
+                        // 导出：支持单表/双表，对比时生成“对比结果”页
+                        // 导出单表/两表；对比模式下额外生成着色表和“对比结果”页
                         async function exportCompare() {
                             try {
                                 if (!window.ExcelJS || selectedFiles.value.length === 0) return;
@@ -1408,7 +1479,7 @@
                                     // M 区：导线长度差值计算（使用原 wiresDiff 列），并按差值红/绿着色
                                     ws.getCell('M1').value = '导线长度差值计算';
                                     ws.getCell('M1').fill = fillSolid(COLORS.GRAY);
-                                    const h3 = ['零件号', '类型', '本表数量', '对表数量', '差值(本-对)'];
+                                    const h3 = ['零件号', '类型', '左表数量', '右表数量', '差值(左-右)'];
                                     for (let i = 0; i < h3.length; i++) {
                                         const cell = ws.getCell(3, 13 + i); // M=13
                                         cell.value = h3[i];
@@ -1474,6 +1545,7 @@
                         }
 
                         // 列宽自适应（近似）：按每列最大字符串长度设置宽度（限制到 60）
+                        // 粗略自适应列宽：按列内最大字符串长度设置（上限 maxWidth）
                         function autoFitColumns(ws, padding = 2, maxWidth = 60) {
                             let colCount = 0;
                             for (let r = 1; r <= ws.rowCount; r++) {
@@ -1502,6 +1574,7 @@
                         }
 
                         // 仅为有内容的单元格加边框（Excel默认细边框）
+                        // 仅为有内容的单元格加边框
                         function applyBordersForContent(ws) {
                             // 统计最大列数
                             let colCount = 0;
@@ -1538,6 +1611,7 @@
                         }
 
                         // 在指定矩形范围内（包含空单元格）统一加细边框
+                        // 在指定矩形范围内统一加细边框（包含空单元格）
                         function applyBordersForRange(ws, r1, c1, r2, c2) {
                             // 容错：确保边界有效
                             r1 = Math.max(1, Math.floor(r1));
@@ -1557,6 +1631,7 @@
                             }
                         }
 
+                        // 将分类优先级转为描述标签（用于导出标记）
                         function labelForCategory(priority) {
                             switch (priority) {
                                 case 0: return '未找到（红）';
@@ -1567,6 +1642,7 @@
                             }
                         }
 
+                        // 清洗为合法的 Excel 工作表名，并避免重名冲突
                         function sanitizeSheetName(name, existing = new Set()) {
                             const invalid = /[\\\/*?:\[\]]/g;
                             const baseRaw = String(name).replace(invalid, ' ').trim() || 'Sheet';
@@ -1584,6 +1660,7 @@
                             return candidate;
                         }
 
+                        // 生成可用于文件名的基础串（去扩展名并替换非法字符）
                         function sanitizeFileBase(name) {
                             return String(name).replace(/\.[^.]+$/, '').replace(/[^\u4e00-\u9fa5\w-]+/g, '_');
                         }
