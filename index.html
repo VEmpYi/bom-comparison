@@ -1287,7 +1287,7 @@
                             const containerVisible = ref(false);
                             const displayedSelectedFiles = ref([]);
                             const previewWrap = ref(null);
-                            const subtitle = ref('V2.5 - Beta 网页版');
+                            const subtitle = ref('V2.6 - Beta 网页版');
                             const loading = ref(false);
                             const compareMode = ref(false);
                             const multiCompareMode = ref(false);
@@ -2291,7 +2291,7 @@
                             }
 
                             // 计算“导线数量差值”列表（蓝色类且类型为导线/WIRE/线束），返回 [{ pn, type, q1, q2, diff }]
-                            // 计算导线类的数量差值列表（仅蓝色，即 PN 命中且数量不同）
+                            // 计算导线类的数量差值列表（包含所有导线类型，右表未找到时数量为0）
                             function wiresDiff(fileName) {
                                 if (!compareMode.value || displayedSelectedFiles.value.length !== 2) return [];
                                 const table = getTable(fileName);
@@ -2306,11 +2306,9 @@
                                     const tp = String((row && row['类型']) ?? '').trim();
                                     if (!pn || !TYPE_SET.has(tp)) return;
                                     const otherRow = byPN.get(pn);
-                                    if (!otherRow) return; // 不是蓝色（未找到）不计
                                     const q1 = toNumber(row['数量']);
-                                    const q2 = toNumber(otherRow['数量']);
-                                    if (q1 === q2) return; // 绿色不计
-                                    // 这里是蓝色：相同零件号但数量不同
+                                    const q2 = otherRow ? toNumber(otherRow['数量']) : 0; // 右表未找到时数量为0
+                                    // 包含所有导线类型零件，无论是否找到对应项
                                     list.push({ pn, type: tp, q1, q2, diff: q1 - q2 });
                                 });
                                 return list;
