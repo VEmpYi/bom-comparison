@@ -19,6 +19,8 @@
             onerror="this.onerror=null; this.href='https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.2/css/all.min.css'">
         <!-- ExcelJS CDN (defer避免阻塞渲染) -->
         <script defer src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+        <!-- SheetJS (XLSX) for HTML/Table parsing -->
+        <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
         <!-- Vue 3 全局构建 CDN with fallback -->
         <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"
             onerror="this.onerror=null; this.src='https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.prod.js'"></script>
@@ -486,6 +488,13 @@
                             </div>
                         </transition>
                         <transition name="fadeout">
+                            <div v-if="sjsBadge && sjsBadge.show"
+                                :class="['text-sm font-medium text-white px-4 py-2 rounded-full shadow-lg', sjsBadge.bgClass]"
+                                role="status">
+                                {{ sjsBadge.text }}
+                            </div>
+                        </transition>
+                        <transition name="fadeout">
                             <div v-if="faBadge.show"
                                 :class="['text-sm font-medium text-white px-4 py-2 rounded-full shadow-lg', faBadge.bgClass]"
                                 role="status">
@@ -807,12 +816,14 @@
 
                             // ======================== 通用工具函数 ========================
 
+                            /* UNUSED: 由下方同名函数覆盖，保留一处定义即可
                             // 数字转换函数（处理千位分隔符，空值转0）
                             function toNumber(v) {
                                 if (v == null || v === '') return 0;
                                 const n = parseFloat(String(v).replace(/,/g, ''));
                                 return isNaN(n) ? 0 : n;
                             }
+                            */
 
                             // 规范化键名函数（零件号专用）
                             function normalizeKey(key) {
@@ -823,53 +834,28 @@
                                 return s;
                             }
 
+                            /* UNUSED: 未在当前逻辑中调用
                             // 错误处理工具
                             function handleError(error, context = '') {
                                 console.error(`Error ${context}:`, error);
                                 const message = error?.message || String(error) || 'Unknown error';
                                 alert(`操作失败${context ? ' (' + context + ')' : ''}: ${message}`);
                             }
+                            */
 
                             // ======================== 通用字符串处理 ========================
 
-                            // 安全的字符串提取（处理null/undefined，自动trim）
-                            function safeString(value) {
-                                return value != null ? String(value).trim() : '';
-                            }
-
-                            // 安全获取对象属性的字符串值
-                            function getStringProp(obj, prop) {
-                                return safeString(obj && obj[prop]);
-                            }
-
-                            // 检查字符串是否为空（null、undefined、空字符串、只包含空白）
-                            function isEmpty(str) {
-                                return !str || !String(str).trim();
-                            }
-
-                            // 安全执行函数（统一异常处理）
+                            /* UNUSED: 通用工具当前未使用
+                            function safeString(value) { return value != null ? String(value).trim() : ''; }
+                            function getStringProp(obj, prop) { return safeString(obj && obj[prop]); }
+                            function isEmpty(str) { return !str || !String(str).trim(); }
                             function safeExecute(fn, defaultValue = null, context = '') {
-                                try {
-                                    return fn();
-                                } catch (err) {
-                                    if (context) {
-                                        console.warn(`Safe execution failed (${context}):`, err);
-                                    }
-                                    return defaultValue;
-                                }
+                                try { return fn(); } catch (err) { if (context) console.warn(`Safe execution failed (${context}):`, err); return defaultValue; }
                             }
-
-                            // 异步安全执行
                             async function safeExecuteAsync(fn, defaultValue = null, context = '') {
-                                try {
-                                    return await fn();
-                                } catch (err) {
-                                    if (context) {
-                                        console.warn(`Async safe execution failed (${context}):`, err);
-                                    }
-                                    return defaultValue;
-                                }
+                                try { return await fn(); } catch (err) { if (context) console.warn(`Async safe execution failed (${context}):`, err); return defaultValue; }
                             }
+                            */
 
                             // ======================== 文件解析工具函数 ========================
 
@@ -884,27 +870,17 @@
                                 return displayName;
                             }
 
-                            // 检查是否为表头行（包含指定的令牌）
-                            function isHeaderRow(cellData) {
-                                const firstCellText = String(cellData[0] || '').trim();
-                                return HEADER_TOKENS.has(firstCellText);
-                            }
-
-                            // 清理数据行（移除无效行）
+                            /* UNUSED: 旧版表头与行清理逻辑，已被统一管道替代
+                            function isHeaderRow(cellData) { const firstCellText = String(cellData[0] || '').trim(); return HEADER_TOKENS.has(firstCellText); }
                             function cleanDataRows(rows, columns) {
                                 return rows.filter(row => {
                                     if (!row || typeof row !== 'object') return false;
-
                                     const firstCol = String(row[columns[0]] || '').trim();
-
-                                    // 跳过空行、表头行、Design开头的行
-                                    if (!firstCol || HEADER_TOKENS.has(firstCol) || firstCol.startsWith('Design')) {
-                                        return false;
-                                    }
-
+                                    if (!firstCol || HEADER_TOKENS.has(firstCol) || firstCol.startsWith('Design')) return false;
                                     return true;
                                 });
                             }
+                            */
 
                             // 处理零件号填充和数据清理
                             function processPartNumbers(rows, columns) {
@@ -1013,58 +989,87 @@
 
                             // ======================== HTML解析工具函数 ========================
 
-                            // 解析HTML中的表格数据
-                            function parseHTMLTables(htmlText) {
-                                const parser = new DOMParser();
-                                const doc = parser.parseFromString(htmlText, 'text/html');
-                                const tables = doc.querySelectorAll('table');
+                            /* UNUSED: 已改为使用 SheetJS 解析 HTML
+                            // function parseHTMLTables(htmlText) {}
+                            */
 
-                                const allRows = [];
-                                const detectedCols = [];
-
-                                tables.forEach((table, idx) => {
-                                    try {
-                                        const tableRows = table.querySelectorAll('tr');
-                                        const matrix = Array.from(tableRows).map(tr => {
-                                            const tds = tr.querySelectorAll('td, th');
-                                            const texts = Array.from(tds).map(td => (td.textContent || '').trim());
-                                            const hasMerge = Array.from(tds).some(td => {
-                                                const cs = parseInt(td.getAttribute('colspan') || '1', 10);
-                                                const rs = parseInt(td.getAttribute('rowspan') || '1', 10);
-                                                return (cs > 1 || rs > 1);
-                                            });
-                                            return { texts, hasMerge };
+                            // 使用 SheetJS 解析 HTML，按同义词识别表头并输出规范列名
+                            function parseHTMLWithSheetJS(htmlText) {
+                                if (!window.XLSX) return { rows: [], columns: [] };
+                                const normalizeHeaderText = (v) => {
+                                    if (v == null) return '';
+                                    let s = String(v);
+                                    s = s.replace(/[\u200B-\u200D\uFEFF\u00AD]/g, '');
+                                    s = s.replace(/[\u00A0\s]+/g, ' ').trim();
+                                    return s;
+                                };
+                                const toKey = (s) => normalizeHeaderText(s).toLowerCase();
+                                const CANONICAL = {
+                                    [COLUMN_NAMES.PART_NUMBER]: new Set(['零件号', 'pn', 'part no', 'part number', '物料号', '料号', '编号', '部件号']),
+                                    [COLUMN_NAMES.SUPPLIER_PART_NUMBER]: new Set(['供应商零件号', '供应商料号', '供应商pn', '供应商编号', '供应商物料号']),
+                                    [COLUMN_NAMES.CUSTOMER_PART_NUMBER]: new Set(['客户零件号', '客户料号', '客户pn']),
+                                    [COLUMN_NAMES.TYPE]: new Set(['类型', '品类', '类别', 'type', '线束类型']),
+                                    [COLUMN_NAMES.QUANTITY]: new Set(['数量', 'qty', '数量(pcs)', '数量（pcs）', '数目'])
+                                };
+                                const allSynonyms = new Map();
+                                Object.entries(CANONICAL).forEach(([canon, set]) => {
+                                    Array.from(set).forEach(s => allSynonyms.set(toKey(s), canon));
+                                });
+                                const wb = XLSX.read(htmlText, { type: 'string' });
+                                const aggregatedRows = [];
+                                const seenColsOrder = [];
+                                const seenColsSet = new Set();
+                                (wb.SheetNames || []).forEach(name => {
+                                    const ws = wb.Sheets[name];
+                                    if (!ws) return;
+                                    const AOA = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+                                    if (!Array.isArray(AOA) || !AOA.length) return;
+                                    const maxScan = Math.min(10, AOA.length);
+                                    let headerIdx = -1, bestCount = -1;
+                                    for (let i = 0; i < maxScan; i++) {
+                                        const row = AOA[i] || [];
+                                        let count = 0; const seen = new Set();
+                                        row.forEach(cell => {
+                                            const canon = allSynonyms.get(toKey(cell));
+                                            if (canon && !seen.has(canon)) { seen.add(canon); count++; }
                                         });
-
-                                        const hdrIdx = matrix.findIndex(r => r.texts[0] && HEADER_TOKENS.has(r.texts[0].trim()));
-                                        if (hdrIdx === -1) return; // 非数据表
-
-                                        const headers = matrix[hdrIdx].texts.map(s => String(s).trim());
-                                        headers.forEach(c => {
-                                            if (c && !detectedCols.includes(c)) detectedCols.push(c);
-                                        });
-
-                                        // 处理数据行
-                                        for (let i = hdrIdx + 1; i < matrix.length; i++) {
-                                            const r = matrix[i];
-                                            const first = (r.texts[0] || '').trim();
-
-                                            if (HEADER_TOKENS.has(first) || r.hasMerge || first.startsWith('Design')) {
-                                                continue;
-                                            }
-
-                                            const rowData = {};
-                                            headers.forEach((h, idx2) => {
-                                                rowData[h] = r.texts[idx2] != null ? String(r.texts[idx2]).trim() : '';
-                                            });
-                                            allRows.push(rowData);
+                                        if (count > bestCount) { bestCount = count; headerIdx = i; }
+                                    }
+                                    if (headerIdx === -1) return;
+                                    const rawHeader = (AOA[headerIdx] || []).map(h => normalizeHeaderText(h));
+                                    const columns = rawHeader.map(h => allSynonyms.get(toKey(h)) || h);
+                                    // 记录列顺序（合并多个表时保留首次出现顺序）
+                                    columns.forEach(c => { if (c && !seenColsSet.has(c)) { seenColsSet.add(c); seenColsOrder.push(c); } });
+                                    for (let r = headerIdx + 1; r < AOA.length; r++) {
+                                        const row = AOA[r] || [];
+                                        // 跳过空行
+                                        if (!row.some(v => String(v || '').trim() !== '')) continue;
+                                        const normCells = row.map(v => normalizeHeaderText(v));
+                                        const first = normCells[0] || '';
+                                        // 删除设计说明行
+                                        if (first.startsWith('Design')) continue;
+                                        // 与 XLSX 路径对齐的“重复表头”规则：
+                                        // 只在第一列为令牌（零件号/供应商零件号/客户零件号）或可映射为“零件号”时才判定为表头
+                                        const firstCanon = allSynonyms.get(toKey(first));
+                                        if ((typeof HEADER_TOKENS !== 'undefined' && HEADER_TOKENS.has(first)) || firstCanon === COLUMN_NAMES.PART_NUMBER) {
+                                            continue;
                                         }
-                                    } catch (err) {
-                                        console.warn('解析HTML表格失败，已跳过: 表索引', idx, err);
+                                        const o = {};
+                                        for (let c = 0; c < columns.length; c++) {
+                                            o[columns[c]] = row[c] != null ? String(row[c]).trim() : '';
+                                        }
+                                        aggregatedRows.push(o);
                                     }
                                 });
-
-                                return { rows: allRows, columns: detectedCols };
+                                // 需至少包含关键列
+                                const hasKey = seenColsSet.has(COLUMN_NAMES.PART_NUMBER) || seenColsSet.has(COLUMN_NAMES.SUPPLIER_PART_NUMBER);
+                                if (!hasKey) return { columns: [], rows: [] };
+                                // 规范列顺序：优先关键列，其余按首次出现顺序
+                                const preferred = [COLUMN_NAMES.PART_NUMBER, COLUMN_NAMES.SUPPLIER_PART_NUMBER, COLUMN_NAMES.CUSTOMER_PART_NUMBER, COLUMN_NAMES.TYPE, COLUMN_NAMES.QUANTITY];
+                                const finalColumns = [];
+                                preferred.forEach(k => { if (seenColsSet.has(k)) finalColumns.push(k); });
+                                seenColsOrder.forEach(c => { if (!finalColumns.includes(c)) finalColumns.push(c); });
+                                return { columns: finalColumns, rows: aggregatedRows };
                             }
 
                             // ======================== Excel解析工具函数 ========================
@@ -1074,101 +1079,111 @@
                                 try {
                                     const workbook = new ExcelJS.Workbook();
                                     await workbook.xlsx.load(fileBuffer);
-
                                     const ws = workbook.worksheets[0];
                                     if (!ws) throw new Error('工作表为空');
-
+                                    // 拉平成 AOA（行、列均从1开始填充，保持与 grid 读取一致）
                                     const grid = [];
-                                    const mergedRanges = new Set();
-
-                                    // 处理合并单元格
-                                    ws.mergeCells && Object.keys(ws.mergeCells).forEach(range => {
-                                        const match = range.match(/^([A-Z]+)(\d+):([A-Z]+)(\d+)$/);
-                                        if (match) {
-                                            const [, startCol, startRow, endCol, endRow] = match;
-                                            const startColNum = columnToNumber(startCol);
-                                            const endColNum = columnToNumber(endCol);
-                                            for (let r = parseInt(startRow); r <= parseInt(endRow); r++) {
-                                                for (let c = startColNum; c <= endColNum; c++) {
-                                                    mergedRanges.add(`${r}-${c}`);
-                                                }
+                                    const safeCellText = (cell) => {
+                                        try {
+                                            if (!cell) return '';
+                                            if (cell.text != null) return String(cell.text).trim();
+                                            const v = cell.value;
+                                            if (v == null) return '';
+                                            const t = typeof v;
+                                            if (t === 'string' || t === 'number' || t === 'boolean') return String(v).trim();
+                                            if (v && typeof v === 'object') {
+                                                if (Array.isArray(v.richText)) return String(v.richText.map(x => x && x.text || '').join('')).trim();
+                                                if (v.result != null) return String(v.result).trim();
+                                                if (v.text != null) return String(v.text).trim();
                                             }
-                                        }
-                                    });
-
-                                    // 读取所有单元格数据
+                                            // 最后兜底：可能某些对象自定义了无效 toString，捕获异常
+                                            try { return String(v).trim(); } catch { return ''; }
+                                        } catch { return ''; }
+                                    };
                                     let maxRow = 0, maxCol = 0;
-                                    ws.eachRow({ includeEmpty: true }, (row, rowNumber) => {
-                                        maxRow = Math.max(maxRow, rowNumber);
-                                        row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
-                                            maxCol = Math.max(maxCol, colNumber);
-                                            if (!grid[rowNumber]) grid[rowNumber] = [];
-                                            const val = cell.value;
-                                            grid[rowNumber][colNumber] = val != null ? String(val).trim() : '';
+                                    ws.eachRow({ includeEmpty: true }, (row, r) => {
+                                        maxRow = Math.max(maxRow, r);
+                                        row.eachCell({ includeEmpty: true }, (cell, c) => {
+                                            maxCol = Math.max(maxCol, c);
+                                            if (!grid[r]) grid[r] = [];
+                                            grid[r][c] = safeCellText(cell);
                                         });
                                     });
-
-                                    // 查找表头
-                                    let headerRowIndex = -1;
-                                    let headers = [];
-                                    for (let r = 1; r <= maxRow; r++) {
+                                    // 规范化与同义词表
+                                    const normalizeHeaderText = (v) => {
+                                        if (v == null) return '';
+                                        let s = String(v);
+                                        s = s.replace(/[\u200B-\u200D\uFEFF\u00AD]/g, '');
+                                        s = s.replace(/[\u00A0\s]+/g, ' ').trim();
+                                        return s;
+                                    };
+                                    const toKey = (s) => normalizeHeaderText(s).toLowerCase();
+                                    const CANONICAL = {
+                                        [COLUMN_NAMES.PART_NUMBER]: new Set(['零件号', 'pn', 'part no', 'part number', '物料号', '料号', '编号', '部件号']),
+                                        [COLUMN_NAMES.SUPPLIER_PART_NUMBER]: new Set(['供应商零件号', '供应商料号', '供应商pn', '供应商编号', '供应商物料号']),
+                                        [COLUMN_NAMES.CUSTOMER_PART_NUMBER]: new Set(['客户零件号', '客户料号', '客户pn']),
+                                        [COLUMN_NAMES.TYPE]: new Set(['类型', '品类', '类别', 'type', '线束类型']),
+                                        [COLUMN_NAMES.QUANTITY]: new Set(['数量', 'qty', '数量(pcs)', '数量（pcs）', '数目'])
+                                    };
+                                    const allSynonyms = new Map();
+                                    Object.entries(CANONICAL).forEach(([canon, set]) => {
+                                        Array.from(set).forEach(s => allSynonyms.set(toKey(s), canon));
+                                    });
+                                    // 扫描前10行，选择同义匹配最多的作为表头
+                                    let headerRowIndex = -1, bestCount = -1;
+                                    const maxScan = Math.min(10, maxRow);
+                                    for (let r = 1; r <= maxScan; r++) {
                                         const row = grid[r] || [];
-                                        const firstCell = row[1] || '';
-                                        if (HEADER_TOKENS.has(firstCell.trim())) {
-                                            headerRowIndex = r;
-                                            headers = row.slice(1).map(cell => String(cell || '').trim()).filter(h => h);
-                                            break;
-                                        }
-                                    }
-
-                                    if (headerRowIndex === -1) {
-                                        // 回退策略：使用列索引作为列名
-                                        headers = [];
+                                        let count = 0; const seen = new Set();
                                         for (let c = 1; c <= maxCol; c++) {
-                                            headers.push(`列${c}`);
+                                            const canon = allSynonyms.get(toKey(row[c] || ''));
+                                            if (canon && !seen.has(canon)) { seen.add(canon); count++; }
                                         }
-                                        headerRowIndex = 0;
+                                        if (count > bestCount) { bestCount = count; headerRowIndex = r; }
                                     }
-
+                                    if (headerRowIndex === -1) {
+                                        // 兜底：尝试用第一列令牌定位；再不行用第1行
+                                        for (let r = 1; r <= Math.min(maxRow, 100); r++) {
+                                            const first = normalizeHeaderText(((grid[r] || [])[1]) || '');
+                                            if (typeof HEADER_TOKENS !== 'undefined' && HEADER_TOKENS.has(first)) { headerRowIndex = r; break; }
+                                        }
+                                        if (headerRowIndex === -1) headerRowIndex = 1;
+                                    }
+                                    // 构建规范列名
+                                    const rawHeader = [];
+                                    for (let c = 1; c <= maxCol; c++) rawHeader.push(normalizeHeaderText((grid[headerRowIndex] || [])[c] || ''));
+                                    const mapped = rawHeader.map(h => allSynonyms.get(toKey(h)) || h);
+                                    const columns = [];
+                                    const seenCols = new Set();
+                                    mapped.forEach(c => { if (c && !seenCols.has(c)) { seenCols.add(c); columns.push(c); } });
                                     // 提取数据行
                                     const rows = [];
                                     for (let r = headerRowIndex + 1; r <= maxRow; r++) {
-                                        const row = grid[r] || [];
-                                        const firstCell = (row[1] || '').trim();
-
-                                        // 跳过无效行
-                                        const hasMergedCell = row.some((_, colIdx) =>
-                                            colIdx > 0 && mergedRanges.has(`${r}-${colIdx}`)
-                                        );
-
-                                        if (!firstCell ||
-                                            HEADER_TOKENS.has(firstCell) ||
-                                            firstCell.startsWith('Design') ||
-                                            hasMergedCell) {
-                                            continue;
+                                        // 判断空行
+                                        let any = false; for (let c = 1; c <= maxCol; c++) { if ((grid[r] || [])[c] && String((grid[r] || [])[c]).trim() !== '') { any = true; break; } }
+                                        if (!any) continue;
+                                        const first = normalizeHeaderText(((grid[r] || [])[1]) || '');
+                                        if (first.startsWith('Design')) continue;
+                                        const firstCanon = allSynonyms.get(toKey(first));
+                                        if ((typeof HEADER_TOKENS !== 'undefined' && HEADER_TOKENS.has(first)) || firstCanon === COLUMN_NAMES.PART_NUMBER) continue;
+                                        const o = {};
+                                        for (let i = 0; i < columns.length; i++) {
+                                            const v = (grid[r] || [])[i + 1];
+                                            o[columns[i]] = v != null ? String(v).trim() : '';
                                         }
-
-                                        const rowData = {};
-                                        headers.forEach((header, idx) => {
-                                            rowData[header] = row[idx + 1] != null ? String(row[idx + 1]).trim() : '';
-                                        });
-                                        rows.push(rowData);
+                                        rows.push(o);
                                     }
-
-                                    return { rows, columns: headers };
+                                    const hasKey = columns.includes(COLUMN_NAMES.PART_NUMBER) || columns.includes(COLUMN_NAMES.SUPPLIER_PART_NUMBER);
+                                    if (!hasKey) throw new Error('未检测到关键列');
+                                    return { rows, columns };
                                 } catch (err) {
                                     throw new Error(`Excel解析失败: ${err.message}`);
                                 }
                             }
 
-                            // 列名转数字（A=1, B=2, etc）
-                            function columnToNumber(col) {
-                                let result = 0;
-                                for (let i = 0; i < col.length; i++) {
-                                    result = result * 26 + (col.charCodeAt(i) - 64);
-                                }
-                                return result;
-                            }
+                            /* UNUSED: 列名转数字
+                            function columnToNumber(col) { let result = 0; for (let i = 0; i < col.length; i++) { result = result * 26 + (col.charCodeAt(i) - 64); } return result; }
+                            */
 
                             // ======================== 数据处理流水线 ========================
 
@@ -1221,32 +1236,13 @@
                                 return { type: 'pattern', pattern: 'solid', fgColor: { argb: color } };
                             }
 
-                            // 应用边框到指定范围
-                            function applyBordersToRange(worksheet, startRow, startCol, endRow, endCol) {
-                                for (let r = startRow; r <= endRow; r++) {
-                                    for (let c = startCol; c <= endCol; c++) {
-                                        const cell = worksheet.getCell(r, c);
-                                        cell.border = {
-                                            top: { style: 'thin' },
-                                            left: { style: 'thin' },
-                                            bottom: { style: 'thin' },
-                                            right: { style: 'thin' }
-                                        };
-                                    }
-                                }
-                            }
+                            /* UNUSED: 使用 applyBordersForRange 代替
+                            // function applyBordersToRange(worksheet, startRow, startCol, endRow, endCol) {}
+                            */
 
-                            // 自动调整列宽
-                            function autoFitColumns(worksheet) {
-                                worksheet.columns.forEach(column => {
-                                    let maxLength = 0;
-                                    column.eachCell({ includeEmpty: true }, (cell) => {
-                                        const length = cell.value ? String(cell.value).length : 0;
-                                        maxLength = Math.max(maxLength, length);
-                                    });
-                                    column.width = Math.min(Math.max(maxLength + 2, 10), 50);
-                                });
-                            }
+                            /* UNUSED: 下方有改进版 autoFitColumns
+                            // function autoFitColumns(worksheet) {}
+                            */
 
                             // 清理文件名用于Excel工作表
                             function sanitizeSheetName(name, usedNames) {
@@ -1265,37 +1261,139 @@
                                 return candidate;
                             }
 
-                            // 清理文件名用于下载
-                            function sanitizeFileName(name) {
-                                return String(name).replace(/[\\\/:\*\?\[\]<>|"]/g, '_');
-                            }
+                            /* UNUSED: 已改用 sanitizeFileBase 派生文件名
+                            function sanitizeFileName(name) { return String(name).replace(/[\\\/:\*\?\[\]<>|"]/g, '_'); }
+                            */
 
-                            // 下载工作簿
-                            async function downloadWorkbook(workbook, filename) {
-                                const buffer = await workbook.xlsx.writeBuffer();
-                                const blob = new Blob([buffer], {
-                                    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-                                });
-                                const url = URL.createObjectURL(blob);
-                                const a = document.createElement('a');
-                                a.href = url;
-                                a.download = sanitizeFileName(filename);
-                                a.click();
-                                URL.revokeObjectURL(url);
-                            }
+                            /* UNUSED: 下方已定义同名下载函数
+                            // async function downloadWorkbook(workbook, filename) {}
+                            */
                             // 预览容器显示控制：与 selectedFiles 解耦
                             const containerVisible = ref(false);
                             const displayedSelectedFiles = ref([]);
                             const previewWrap = ref(null);
-                            const subtitle = ref('V2.6 - Beta 网页版');
+                            const subtitle = ref('V2.6.1 - Beta 网页版 HTML解析补丁上线');
                             const loading = ref(false);
                             const compareMode = ref(false);
                             const multiCompareMode = ref(false);
                             const compareBusy = ref(false);
+                            const dataEpoch = ref(0); // 数据版本号：每次装载/删除文件后自增，用于缓存失效
+                            // 原始行索引映射：fileName -> WeakMap(rowObj -> index)
+                            const originalIndexMaps = new Map();
+                            // 比对结果缓存：fileName -> { categories: Int8Array|number[], wiresDiff: Array<{pn,type,q1,q2,diff}> }
+                            const compareCache = reactive({});
+                            let compareWorker = null;
+                            function ensureCompareWorker() {
+                                if (compareWorker) return compareWorker;
+                                const workerCode = `
+                                    self.onmessage = (e) => {
+                                        const { left, right } = e.data || {};
+                                        const TYPE_SET = new Set(['WIRE','线束','导线']);
+                                        const toNumber = (v) => { if (v == null || v === '') return 0; const n = parseFloat(String(v).replace(/,/g,'')); return isNaN(n)?0:n; };
+                                        const leftRows = Array.isArray(left?.rows) ? left.rows : [];
+                                        const rightRows = Array.isArray(right?.rows) ? right.rows : [];
+                                        // 构建右表索引与红集合
+                                        const leftPNSet = new Set();
+                                        leftRows.forEach(r=>{ const pn=String((r&&r['零件号'])??'').trim(); if(pn) leftPNSet.add(pn); });
+                                        const rightByPN = new Map();
+                                        rightRows.forEach(r=>{ const pn=String((r&&r['零件号'])??'').trim(); if(pn) rightByPN.set(pn,r); });
+                                        const rightRedSupplierSet = new Set();
+                                        rightRows.forEach(r=>{ const pn=String((r&&r['零件号'])??'').trim(); const spn=String((r&&r['供应商零件号'])??'').trim(); if(!pn||!spn) return; if(!leftPNSet.has(pn)) rightRedSupplierSet.add(spn); });
+                                        // 计算左->右分类
+                                        const categoriesL = new Array(leftRows.length).fill(3);
+                                        let countsL = {red:0, orange:0, blue:0, green:0};
+                                        for (let i=0;i<leftRows.length;i++){
+                                            const row = leftRows[i];
+                                            const pn = String((row&&row['零件号'])??'').trim();
+                                            const other = pn? rightByPN.get(pn): undefined;
+                                            let cat = 3;
+                                            if(!other){
+                                                const spn = String((row&&row['供应商零件号'])??'').trim();
+                                                cat = (spn && rightRedSupplierSet.has(spn)) ? 1 : 0;
+                                            } else {
+                                                const q1 = toNumber(row['数量']);
+                                                const q2 = toNumber(other['数量']);
+                                                cat = (q1===q2)?3:2;
+                                            }
+                                            categoriesL[i]=cat;
+                                            if (cat===0) countsL.red++; else if(cat===1) countsL.orange++; else if(cat===2) countsL.blue++; else countsL.green++;
+                                        }
+                                        // wiresDiff（左表）
+                                        const wiresL = [];
+                                        for(let i=0;i<leftRows.length;i++){
+                                            const row = leftRows[i];
+                                            const pn = String((row&&row['零件号'])??'').trim();
+                                            const tp = String((row&&row['类型'])??'').trim();
+                                            if(!pn || !TYPE_SET.has(tp)) continue;
+                                            const other = rightByPN.get(pn);
+                                            const q1 = toNumber(row['数量']);
+                                            const q2 = other? toNumber(other['数量']) : 0;
+                                            wiresL.push({ pn, type: tp, q1, q2, diff: q1 - q2 });
+                                        }
+                                        // 右->左（为对称显示预先算好）
+                                        const rightPNSet = new Set();
+                                        rightRows.forEach(r=>{ const pn=String((r&&r['零件号'])??'').trim(); if(pn) rightPNSet.add(pn); });
+                                        const leftByPN = new Map();
+                                        leftRows.forEach(r=>{ const pn=String((r&&r['零件号'])??'').trim(); if(pn) leftByPN.set(pn,r); });
+                                        const leftRedSupplierSet = new Set();
+                                        leftRows.forEach(r=>{ const pn=String((r&&r['零件号'])??'').trim(); const spn=String((r&&r['供应商零件号'])??'').trim(); if(!pn||!spn) return; if(!rightPNSet.has(pn)) leftRedSupplierSet.add(spn); });
+                                        const categoriesR = new Array(rightRows.length).fill(3);
+                                        let countsR = {red:0, orange:0, blue:0, green:0};
+                                        for (let i=0;i<rightRows.length;i++){
+                                            const row = rightRows[i];
+                                            const pn = String((row&&row['零件号'])??'').trim();
+                                            const other = pn? leftByPN.get(pn): undefined;
+                                            let cat = 3;
+                                            if(!other){
+                                                const spn = String((row&&row['供应商零件号'])??'').trim();
+                                                cat = (spn && leftRedSupplierSet.has(spn)) ? 1 : 0;
+                                            } else {
+                                                const q1 = toNumber(row['数量']);
+                                                const q2 = toNumber(other['数量']);
+                                                cat = (q1===q2)?3:2;
+                                            }
+                                            categoriesR[i]=cat;
+                                            if (cat===0) countsR.red++; else if(cat===1) countsR.orange++; else if(cat===2) countsR.blue++; else countsR.green++;
+                                        }
+                                        const wiresR = [];
+                                        for(let i=0;i<rightRows.length;i++){
+                                            const row = rightRows[i];
+                                            const pn = String((row&&row['零件号'])??'').trim();
+                                            const tp = String((row&&row['类型'])??'').trim();
+                                            if(!pn || !TYPE_SET.has(tp)) continue;
+                                            const other = leftByPN.get(pn);
+                                            const q1 = toNumber(row['数量']);
+                                            const q2 = other? toNumber(other['数量']) : 0;
+                                            wiresR.push({ pn, type: tp, q1, q2, diff: q1 - q2 });
+                                        }
+                                        self.postMessage({
+                                            left: { name: left?.name, categories: categoriesL, counts: countsL, wires: wiresL },
+                                            right: { name: right?.name, categories: categoriesR, counts: countsR, wires: wiresR }
+                                        });
+                                    };
+                                `;
+                                const blob = new Blob([workerCode], { type: 'application/javascript' });
+                                compareWorker = new Worker(URL.createObjectURL(blob));
+                                compareWorker.onmessage = (e) => {
+                                    const res = e.data || {};
+                                    if (res.left?.name) compareCache[res.left.name] = { categories: res.left.categories, counts: res.left.counts, wires: res.left.wires };
+                                    if (res.right?.name) compareCache[res.right.name] = { categories: res.right.categories, counts: res.right.counts, wires: res.right.wires };
+                                    compareBusy.value = false;
+                                    compareMode.value = true;
+                                };
+                                // 避免 worker 内部错误导致一直处于忙碌态
+                                compareWorker.onerror = (err) => {
+                                    console.error('Compare worker error:', err);
+                                    compareBusy.value = false;
+                                };
+                                return compareWorker;
+                            }
                             const sheetReady = ref(false);
+                            const sjsReady = ref(false);
                             const faReady = ref(false);
                             // 统一的提示徽标（各一个）：加载中为蓝色，加载完成切换为绿色并淡出
                             const sheetBadge = reactive({ show: true, bgClass: 'bg-blue-600', text: 'ExcelJS 加载中...' });
+                            const sjsBadge = reactive({ show: true, bgClass: 'bg-blue-600', text: 'SheetJS 加载中...' });
                             const faBadge = reactive({ show: true, bgClass: 'bg-blue-600', text: '图标库加载中...' });                            // 颜色筛选：每个文件最多选一种颜色分类（再次点击清除）
                             const colorFilters = reactive({}); // { [fileName]: 'red'|'orange'|'blue'|'green' }
 
@@ -1357,16 +1455,23 @@
                             }
                             detectFontAwesome();
 
-                            // 轮询检测 ExcelJS 是否已加载
+                            // 轮询检测 ExcelJS / SheetJS 是否已加载
                             const checkTimer = setInterval(() => {
-                                if (window && window.ExcelJS) {
+                                if (window && window.ExcelJS && !sheetReady.value) {
                                     sheetReady.value = true;
                                     sheetBadge.bgClass = 'bg-green-600';
                                     sheetBadge.text = 'ExcelJS 加载完毕';
                                     setTimeout(() => { sheetBadge.show = false; }, 2000);
-                                    clearInterval(checkTimer);
                                     console.log('ExcelJS 已加载');
                                 }
+                                if (window && window.XLSX && !sjsReady.value) {
+                                    sjsReady.value = true;
+                                    sjsBadge.bgClass = 'bg-green-600';
+                                    sjsBadge.text = 'SheetJS 加载完毕';
+                                    setTimeout(() => { sjsBadge.show = false; }, 2000);
+                                    console.log('SheetJS 已加载');
+                                }
+                                if (sheetReady.value && sjsReady.value) clearInterval(checkTimer);
                             }, 100);
 
                             // 回到顶部：显示/隐藏逻辑（不依赖具体滚动容器，捕获任何滚动）
@@ -1570,12 +1675,13 @@
                                 // 4) PN 填充：若“零件号”为空且“供应商零件号”也为空，则丢弃该行；若“零件号”为空但“供应商零件号”有值，则将“零件号”填为【供应商零件号】。
                                 // 5) 规范化与聚合：对导线/WIRE/线束三段号规范为前两段；按“零件号”聚合并汇总“数量”。
                                 // 6) 排序：按“零件号”自然升序（数字友好、忽略中英文大小写差异）。
-                                if (!sheetReady.value || !window.ExcelJS) {
-                                    alert('ExcelJS 还在加载中，请刷新页面后重新尝试');
-                                    return;
-                                }
-                                const files = Array.from(e.target.files);
+                                const files = Array.from(e.target.files || []);
                                 if (!files.length) return;
+                                // 按需校验依赖：含Excel需ExcelJS，含HTML需SheetJS
+                                const needExcel = files.some(f => !/\.html?$/i.test(f.name));
+                                const needSheet = files.some(f => /\.html?$/i.test(f.name));
+                                if (needExcel && !window.ExcelJS) { alert('ExcelJS 还在加载中，请稍后再试'); return; }
+                                if (needSheet && !window.XLSX) { alert('SheetJS 还在加载中，请稍后再试'); return; }
                                 loading.value = true;
                                 await Promise.all(files.map(file => new Promise(resolve => {
                                     // 不再跳过同名文件：生成一个唯一可显示名称（name, name (2), name (3)...）
@@ -1590,51 +1696,7 @@
                                             let columns = [];
                                             if (file.name.endsWith('.html') || file.name.endsWith('.htm')) {
                                                 const html = evt.target.result;
-                                                // 在离屏容器中解析，按“第一列为 零件号/供应商零件号/客户零件号 的行”识别表头
-                                                const container = document.createElement('div');
-                                                container.innerHTML = html;
-                                                const tbls = Array.from(container.getElementsByTagName('table'));
-                                                const TOKENS = new Set(['零件号', '供应商零件号', '客户零件号']);
-                                                const allRows = [];
-                                                let detectedCols = [];
-                                                tbls.forEach((tbl, idx) => {
-                                                    try {
-                                                        const trs = Array.from(tbl.querySelectorAll('tr'));
-                                                        if (trs.length === 0) return;
-                                                        // 将每一行解析为 文本数组 + 是否合并单元格 标记
-                                                        const matrix = trs.map(tr => {
-                                                            const tds = Array.from(tr.children);
-                                                            const texts = tds.map(td => (td.textContent || '').trim());
-                                                            const hasMerge = tds.some(td => {
-                                                                const cs = parseInt(td.getAttribute('colspan') || '1', 10);
-                                                                const rs = parseInt(td.getAttribute('rowspan') || '1', 10);
-                                                                return (cs > 1 || rs > 1);
-                                                            });
-                                                            return { texts, hasMerge };
-                                                        });
-                                                        const hdrIdx = matrix.findIndex(r => (r.texts[0] || '') && TOKENS.has(String(r.texts[0]).trim()));
-                                                        if (hdrIdx === -1) return; // 非数据表
-                                                        const headers = matrix[hdrIdx].texts.map(s => String(s).trim());
-                                                        // 合并列集合（保持顺序，避免重复）
-                                                        headers.forEach(c => { if (!detectedCols.includes(c)) detectedCols.push(c); });
-                                                        // 逐行写入数据（跳过后续误入的表头行；删除合并行；删除Design开头行）
-                                                        for (let i = hdrIdx + 1; i < matrix.length; i++) {
-                                                            const r = matrix[i];
-                                                            const first = String((r.texts[0] || '')).trim();
-                                                            if (TOKENS.has(first)) continue; // 删除误入的表头行
-                                                            if (r.hasMerge) continue; // 删除合并单元格的行
-                                                            if (first.startsWith('Design')) continue; // 删除第一列以Design开头
-                                                            const o = {};
-                                                            headers.forEach((h, idx2) => {
-                                                                o[h] = (r.texts[idx2] != null ? String(r.texts[idx2]).trim() : '');
-                                                            });
-                                                            allRows.push(o);
-                                                        }
-                                                    } catch (err) {
-                                                        console.warn('解析HTML表格失败，已跳过: 表索引', idx, err);
-                                                    }
-                                                });
-                                                const parsed = parseHTMLTables(html);
+                                                const parsed = parseHTMLWithSheetJS(html);
                                                 rows = parsed.rows;
                                                 columns = parsed.columns;
                                             } else {
@@ -1642,242 +1704,23 @@
                                                 if (lower.endsWith('.xls')) {
                                                     throw new Error('暂不支持 .xls（请另存为 .xlsx 后导入）');
                                                 }
-                                                const wb = new ExcelJS.Workbook();
-                                                await wb.xlsx.load(evt.target.result);
-                                                if (!wb.worksheets || wb.worksheets.length === 0) {
-                                                    throw new Error('Excel文件无有效Sheet');
-                                                }
-                                                const ws = wb.worksheets[0];
-                                                // —— 解析策略要点 ——
-                                                // 1) 使用 actualColumnCount/actualRowCount 获取网格范围，逐格标准化读取（避免空格/富文本/公式值混乱）。
-                                                // 2) 识别合并区域并以“行”为粒度删除合并行；按“第一列令牌”定位表头并重建数据；未识别到表头时回退到临时列名。
-                                                const colCount = ws.actualColumnCount || ws.columnCount || 0;
-                                                const rowCount = ws.actualRowCount || ws.rowCount || 0;
-                                                if (colCount === 0 || rowCount === 0) throw new Error('Excel为空');
-                                                const normalize = (v) => {
-                                                    if (v == null) return '';
-                                                    if (typeof v === 'object') {
-                                                        if (v.text != null) return String(v.text).trim();
-                                                        if (v.result != null) return String(v.result).trim();
-                                                        if (Array.isArray(v.richText)) return String(v.richText.map(t => t.text).join('')).trim();
-                                                    }
-                                                    // 日期/数字等统一转成字符串
-                                                    try { return String(v).trim(); } catch { return ''; }
-                                                };
-                                                const arr = [];
-                                                // 记录合并单元格所在的“行”集合，用于后续整体剔除（同一行中只要存在合并单元格就视为不可靠）。
-                                                const mergedRowSet = new Set();
-                                                try {
-                                                    const merges = ws._merges || ws._mergesMap || ws.model && ws.model.merges;
-                                                    // 支持多种内部表示
-                                                    if (merges) {
-                                                        const values = Array.isArray(merges) ? merges : (typeof merges === 'object' ? Object.values(merges) : []);
-                                                        values.forEach(m => {
-                                                            // m 可能是 "A1:B2" 或对象 {top,left,bottom,right}
-                                                            if (m && typeof m === 'string') {
-                                                                // 解析范围字符串
-                                                                const m2 = m.split(':');
-                                                                const toRC = (addr) => {
-                                                                    const match = addr.match(/([A-Z]+)(\d+)/);
-                                                                    if (!match) return { r: 0, c: 0 };
-                                                                    const colStr = match[1];
-                                                                    const rowStr = match[2];
-                                                                    let c = 0;
-                                                                    for (let i = 0; i < colStr.length; i++) {
-                                                                        c = c * 26 + (colStr.charCodeAt(i) - 64);
-                                                                    }
-                                                                    return { r: parseInt(rowStr, 10) || 0, c };
-                                                                };
-                                                                const a = toRC(m2[0] || 'A1');
-                                                                const b = toRC(m2[1] || m2[0] || 'A1');
-                                                                const r1 = Math.min(a.r, b.r), r2 = Math.max(a.r, b.r);
-                                                                for (let rr = r1; rr <= r2; rr++) mergedRowSet.add(rr);
-                                                            } else if (m && typeof m === 'object' && m.top != null && m.bottom != null) {
-                                                                for (let rr = m.top; rr <= m.bottom; rr++) mergedRowSet.add(rr);
-                                                            }
-                                                        });
-                                                    }
-                                                } catch { }
-
-                                                for (let r = 1; r <= rowCount; r++) {
-                                                    const row = ws.getRow(r);
-                                                    // 兜底：若未识别到 merges，则尝试逐格判断
-                                                    if (!mergedRowSet.has(r)) {
-                                                        try {
-                                                            let hasMerge = false;
-                                                            for (let c = 1; c <= colCount; c++) {
-                                                                const cell = row.getCell(c);
-                                                                if (cell && (cell.isMerged || (cell.master && cell.address !== cell.master.address))) {
-                                                                    hasMerge = true; break;
-                                                                }
-                                                            }
-                                                            if (hasMerge) mergedRowSet.add(r);
-                                                        } catch (mergeErr) {
-                                                            console.warn(`检查第${r}行合并单元格时出错:`, mergeErr.message);
-                                                        }
-                                                    }
-                                                    const one = new Array(colCount);
-                                                    for (let c = 1; c <= colCount; c++) {
-                                                        const cell = row.getCell(c);
-                                                        one[c - 1] = normalize(cell && cell.value);
-                                                    }
-                                                    arr.push(one);
-                                                }
-
-                                                // 识别表头：第一列为“令牌”（零件号/供应商零件号/客户零件号）的一行即为表头；其后若再出现同类行，则视为误入表头并删除。
-                                                const TOKENS = new Set(['零件号', '供应商零件号', '客户零件号']);
-                                                let headerRowIdx = -1;
-                                                for (let i = 0; i < arr.length; i++) {
-                                                    const first = String((arr[i] && arr[i][0]) || '').trim();
-                                                    if (TOKENS.has(first)) { headerRowIdx = i; break; }
-                                                }
-                                                if (headerRowIdx !== -1) {
-                                                    const headerRow = arr[headerRowIdx];
-                                                    columns = headerRow.map(v => String(v || '').trim());
-                                                    const newRows = [];
-                                                    for (let i = 0; i < arr.length; i++) {
-                                                        if (i === headerRowIdx) continue;
-                                                        const first = String((arr[i] && arr[i][0]) || '').trim();
-                                                        // 删除误入表头行
-                                                        if (TOKENS.has(first)) continue;
-                                                        // 删除合并单元格的行
-                                                        if (mergedRowSet.has(i + 1)) continue;
-                                                        // 删除第一列以 Design 开头的行
-                                                        if (first.startsWith('Design')) continue;
-                                                        const o = {};
-                                                        for (let j = 0; j < columns.length; j++) {
-                                                            o[columns[j]] = arr[i][j] != null ? String(arr[i][j]).trim() : '';
-                                                        }
-                                                        newRows.push(o);
-                                                    }
-                                                    rows = newRows;
-                                                } else {
-                                                    // 后备：保持原有策略（临时列名 + 全部数据），下游步骤会尽量兼容
-                                                    columns = Array.from({ length: colCount }, (_, i) => `列${i + 1}`);
-                                                    rows = arr.map(a => {
-                                                        const o = {};
-                                                        for (let i = 0; i < colCount; i++) o[columns[i]] = a[i] ?? '';
-                                                        return o;
-                                                    });
-                                                }
+                                                const parsed = await parseExcelFile(evt.target.result, file.name);
+                                                rows = parsed.rows;
+                                                columns = parsed.columns;
                                             }
-                                            // 清洗逻辑（与新规则一致）：
-                                            // 1) 表头已在解析阶段按“第一列=令牌”识别，并已移除误入表头行；合并行与第一列以 Design 开头的行也已删除。
-                                            // 2) 对“零件号/供应商零件号”做统一规整 + PN 填充：
-                                            //    - 仅对这两列进行：去除不可见字符(零宽/软连字符等)；去除多余空白，再 trim。
-                                            //    - 若“零件号”为空且“供应商零件号”也为空 -> 删除该行；
-                                            //    - 若“零件号”为空但“供应商零件号”有值 -> 将“零件号”填为【供应商零件号】。
-                                            try {
-                                                const hasPN = columns.includes('零件号');
-                                                const hasSPN = columns.includes('供应商零件号');
-                                                if (!hasPN) {
-                                                    // 确保存在“零件号”列，便于后续流程
-                                                    columns = ['零件号', ...columns.filter(c => c !== '零件号')];
-                                                }
-                                                if (hasPN || hasSPN) {
-                                                    // 仅用于“零件号/供应商零件号”的规整函数
-                                                    const normalizeKey = (v) => {
-                                                        if (v == null) return '';
-                                                        let s = String(v);
-                                                        // 删除零宽字符与软连字符：U+200B..U+200D, U+FEFF, U+00AD
-                                                        s = s.replace(/[\u200B-\u200D\uFEFF\u00AD]/g, '');
-                                                        // 删除所有空白（空格/回车/制表/不间断空格等），不保留
-                                                        s = s.replace(/[\s\u00A0]+/g, '').trim();
-                                                        return s;
-                                                    };
-                                                    const kept = [];
-                                                    rows.forEach(r => {
-                                                        // 先对两列做规整（仅这两列）
-                                                        const pn0 = (r && r['零件号']);
-                                                        const spn0 = (r && r['供应商零件号']);
-                                                        const pn = normalizeKey(pn0);
-                                                        const spn = normalizeKey(spn0);
-                                                        r['零件号'] = pn; // 确保“零件号”列写回为规整后的值
-                                                        if (hasSPN && ('供应商零件号' in r)) r['供应商零件号'] = spn;
-
-                                                        if (!pn) {
-                                                            if (!spn) {
-                                                                // 两者都空：丢弃
-                                                                return;
-                                                            }
-                                                            // 仅 PN 为空：用【供应商零件号】填充
-                                                            r['零件号'] = `【${spn}】`;
-                                                        }
-                                                        //（移除冗余）此处无需再次确保“零件号”存在，前面已统一写回
-                                                        kept.push(r);
-                                                    });
-                                                    rows = kept;
-                                                }
-                                            } catch (err) {
-                                                throw new Error(`零件号数据清理失败: ${err.message || '零件号或供应商零件号数据格式有误'}`);
-                                            }
-
-                                            // 4. 基于“类型”列的规则处理与聚合（在排序之前，基于“零件号”字段）
-                                            try {
-                                                const colPN = (columns && columns.includes('零件号')) ? '零件号' : null;
-                                                const colType = columns.includes('类型') ? '类型' : null;
-                                                const colQty = columns.includes('数量') ? '数量' : null;
-                                                const TYPE_SET = new Set(['WIRE', '线束', '导线']);
-
-                                                if (colPN && colType) {
-                                                    // 4.1 PN 规范化：对 类型∈{WIRE, 线束, 导线} 的行，若 PN 形如 A-B-C（三段），则规范为 “A-B” 便于聚合。
-                                                    rows.forEach(r => {
-                                                        const t = r && r[colType];
-                                                        const aVal = r && r[colPN];
-                                                        const aStr = (aVal == null ? '' : String(aVal)).trim();
-                                                        if (TYPE_SET.has(String(t).trim())) {
-                                                            const parts = aStr.split('-');
-                                                            if (parts.length === 3) {
-                                                                r[colPN] = parts[0] + '-' + parts[1];
-                                                            }
-                                                        }
-                                                    });
-                                                }
-
-                                                // 4.2 按“零件号”聚合：相同 PN 的“数量”相加，其它字段保留首行值
-                                                if (colPN && colQty) {
-                                                    const map = new Map();
-                                                    rows.forEach(row => {
-                                                        const key = String((row && row[colPN]) ?? '').trim();
-                                                        if (!map.has(key)) {
-                                                            // 浅拷贝一份作为聚合基
-                                                            const base = { ...row };
-                                                            base[colQty] = toNumber(base[colQty]);
-                                                            map.set(key, base);
-                                                        } else {
-                                                            const agg = map.get(key);
-                                                            agg[colQty] = toNumber(agg[colQty]) + toNumber(row[colQty]);
-                                                        }
-                                                    });
-                                                    rows = Array.from(map.values());
-                                                }
-                                            } catch (e) {
-                                                throw new Error(`导线类型处理或数据聚合失败: ${e && e.message ? e.message : '类型列或数量列数据格式有误'}`);
-                                            }
-                                            // 5. 排序：使用 Intl.Collator 的 numeric 自然排序，兼容中英文与数字混排。
-                                            try {
-                                                const primaryCol = (columns && columns.includes(COLUMN_NAMES.PART_NUMBER)) ? COLUMN_NAMES.PART_NUMBER : null;
-                                                if (primaryCol) {
-                                                    const collator = new Intl.Collator('zh-CN', { numeric: true, sensitivity: 'base' });
-                                                    rows.sort((a, b) => {
-                                                        const av = (a && typeof a === 'object') ? a[primaryCol] : '';
-                                                        const bv = (b && typeof b === 'object') ? b[primaryCol] : '';
-                                                        const as = av == null ? '' : String(av).trim();
-                                                        const bs = bv == null ? '' : String(bv).trim();
-                                                        return collator.compare(as, bs);
-                                                    });
-                                                }
-                                            } catch (e) {
-                                                throw new Error(`数据排序失败: ${e && e.message ? e.message : '零件号列数据无法正常排序'}`);
-                                            }
-                                            table.columns = columns;
-                                            table.data = rows;
+                                            // 严格复用 XLSX 的统一清洗管道
+                                            const cleaned = processRawData(rows, columns);
+                                            table.columns = cleaned.columns;
+                                            table.data = cleaned.rows;
                                             table.status = 'success';
                                             table.errorMsg = '';
                                             const f = fileList.find(f => f.name === displayName);
                                             f.rows = table.data.length;
                                             f.status = 'success';
                                             f.errorMsg = '';
+                                            // 数据变更：失效缓存 & bump 版本
+                                            dataEpoch.value++;
+                                            delete compareCache[displayName];
                                         } catch (err) {
                                             // 根据错误类型提供具体的错误信息
                                             let errorMessage = '';
@@ -1938,6 +1781,9 @@
                                 fileList.splice(idx, 1);
                                 const selIdx = selectedFiles.value.indexOf(name);
                                 if (selIdx !== -1) selectedFiles.value.splice(selIdx, 1);
+                                // 数据变更：失效缓存 & bump 版本
+                                dataEpoch.value++;
+                                delete compareCache[name];
                             }
 
                             //（已移除）点击文件条目切换预览功能由 onFileCheckboxChange 统一处理
@@ -2153,20 +1999,32 @@
 
                             // 开关对比模式；开启时短暂进入忙碌态
                             async function toggleCompare() {
-                                if (compareMode.value) {
-                                    // 关闭对比：直接退出
-                                    compareMode.value = false;
-                                    return;
-                                }
-                                // 启动对比：进入忙碌态，短暂分析后开启
+                                if (compareMode.value) { compareMode.value = false; return; }
                                 if (compareBusy.value) return;
+                                if (displayedSelectedFiles.value.length !== 2) return;
+                                const [f1, f2] = displayedSelectedFiles.value;
+                                const t1 = getTable(f1); const t2 = getTable(f2);
+                                if (!t1?.data?.length && !t2?.data?.length) { compareMode.value = true; return; }
+                                // 构建原始索引映射（用于把 worker 分类结果按行对象找回）
+                                const makeIndexMap = (name, data) => {
+                                    const map = new WeakMap();
+                                    data.forEach((row, idx) => map.set(row, idx));
+                                    originalIndexMaps.set(name, map);
+                                };
+                                makeIndexMap(f1, t1.data || []);
+                                makeIndexMap(f2, t2.data || []);
+                                // 将响应式行对象转换为可克隆的普通对象，避免 postMessage DataCloneError
+                                const toPlainRows = (rows) => (Array.isArray(rows) ? rows : []).map(r => Object.fromEntries(Object.entries(r)));
+                                const leftPayload = { name: f1, rows: toPlainRows(t1.data) };
+                                const rightPayload = { name: f2, rows: toPlainRows(t2.data) };
                                 compareBusy.value = true;
+                                const worker = ensureCompareWorker();
                                 try {
-                                    // 可以在此预热索引/缓存分类，当前做一个小延时模拟分析
-                                    await new Promise(r => setTimeout(r, 500));
-                                    compareMode.value = true;
-                                } finally {
+                                    worker.postMessage({ left: leftPayload, right: rightPayload });
+                                } catch (err) {
+                                    console.error('postMessage failed:', err);
                                     compareBusy.value = false;
+                                    // 保持 compareMode 关闭状态
                                 }
                             }
 
@@ -2255,7 +2113,15 @@
 
                             // 根据分类优先级返回表格行的背景色 class
                             function rowBgClass(fileName, row) {
-                                const p = categoryPriority(fileName, row);
+                                // 使用 worker 结果优先（避免在渲染时重复计算）
+                                const cache = compareCache[fileName];
+                                let p;
+                                if (cache && Array.isArray(cache.categories)) {
+                                    const idxMap = originalIndexMaps.get(fileName);
+                                    const idx = idxMap ? idxMap.get(row) : undefined;
+                                    p = (typeof idx === 'number') ? cache.categories[idx] : undefined;
+                                }
+                                if (p == null) p = categoryPriority(fileName, row);
                                 switch (p) {
                                     case 0: return 'bg-red-50';
                                     case 1: return 'bg-orange-50';
@@ -2267,13 +2133,14 @@
 
                             // 统计当前文件在四种分类下的行数（基于基础列筛选，不含颜色筛选）
                             function categoryCounts(fileName) {
+                                // 优先使用 worker 统计结果
+                                const cache = compareCache[fileName];
+                                if (cache && cache.counts) return cache.counts;
+                                // 回退到同步计算
                                 const counts = { red: 0, orange: 0, blue: 0, green: 0 };
                                 const table = getTable(fileName);
-                                if (!compareMode.value || displayedSelectedFiles.value.length !== 2 || !(table.columns || []).includes('零件号')) {
-                                    return counts;
-                                }
+                                if (!compareMode.value || displayedSelectedFiles.value.length !== 2 || !(table.columns || []).includes('零件号')) return counts;
                                 const { otherByPN, otherRedSupplierSet } = buildCrossIndex(fileName);
-                                // 用不含颜色筛选的基础结果来统计数量
                                 const rows = baseFilteredRows(fileName) || [];
                                 rows.forEach(row => {
                                     const pn = String((row && row['零件号']) ?? '').trim();
@@ -2293,25 +2160,33 @@
                             // 计算“导线数量差值”列表（蓝色类且类型为导线/WIRE/线束），返回 [{ pn, type, q1, q2, diff }]
                             // 计算导线类的数量差值列表（包含所有导线类型，右表未找到时数量为0）
                             function wiresDiff(fileName) {
-                                if (!compareMode.value || displayedSelectedFiles.value.length !== 2) return [];
-                                const table = getTable(fileName);
-                                if (!table || !(table.columns || []).includes('零件号')) return [];
-                                const TYPE_SET = new Set(['WIRE', '线束', '导线']);
-                                const otherName = getOtherFileName(fileName);
-                                const { byPN } = buildIndexes(otherName);
-                                const rows = filteredRows(fileName) || [];
-                                const list = [];
-                                rows.forEach(row => {
-                                    const pn = String((row && row['零件号']) ?? '').trim();
-                                    const tp = String((row && row['类型']) ?? '').trim();
-                                    if (!pn || !TYPE_SET.has(tp)) return;
-                                    const otherRow = byPN.get(pn);
-                                    const q1 = toNumber(row['数量']);
-                                    const q2 = otherRow ? toNumber(otherRow['数量']) : 0; // 右表未找到时数量为0
-                                    // 包含所有导线类型零件，无论是否找到对应项
-                                    list.push({ pn, type: tp, q1, q2, diff: q1 - q2 });
-                                });
-                                return list;
+                                // 优先使用 worker 结果（再在 UI 侧应用列筛选）
+                                const cache = compareCache[fileName];
+                                let list = cache && Array.isArray(cache.wires) ? cache.wires : null;
+                                if (!list) {
+                                    // 同步回退
+                                    if (!compareMode.value || displayedSelectedFiles.value.length !== 2) return [];
+                                    const table = getTable(fileName);
+                                    if (!table || !(table.columns || []).includes('零件号')) return [];
+                                    const TYPE_SET = new Set(['WIRE', '线束', '导线']);
+                                    const otherName = getOtherFileName(fileName);
+                                    const { byPN } = buildIndexes(otherName);
+                                    const rows = filteredRows(fileName) || [];
+                                    const tmp = [];
+                                    rows.forEach(row => {
+                                        const pn = String((row && row['零件号']) ?? '').trim();
+                                        const tp = String((row && row['类型']) ?? '').trim();
+                                        if (!pn || !TYPE_SET.has(tp)) return;
+                                        const otherRow = byPN.get(pn);
+                                        const q1 = toNumber(row['数量']);
+                                        const q2 = otherRow ? toNumber(otherRow['数量']) : 0;
+                                        tmp.push({ pn, type: tp, q1, q2, diff: q1 - q2 });
+                                    });
+                                    list = tmp;
+                                }
+                                // 套用当前列筛选（只显示当前筛选后的 PN）
+                                const visible = new Set((filteredRows(fileName) || []).map(r => String((r && r['零件号']) ?? '').trim()));
+                                return (list || []).filter(d => visible.has(d.pn));
                             }
 
                             // ======================== 通用导出工具（可复用） ========================
@@ -2348,6 +2223,17 @@
                                     const ws = wb.addWorksheet(sanitizeSheetName(f, new Set()));
                                     ws.addRow(cols); ws.getRow(1).font = { bold: true }; ws.getRow(1).fill = fillSolid(COLORS.LIGHT_GRAY);
                                     rows.forEach(r => ws.addRow(cols.map(c => r[c])));
+                                    // 设置列格式：除“数量”外，全部按文本显示以保留前导零
+                                    const qtyIdx_ws = cols.indexOf('数量');
+                                    ws.columns = cols.map((name, idx) => ({ header: name, key: `c${idx}`, width: Math.max(10, String(name || '').length + 2), numFmt: (idx === qtyIdx_ws ? undefined : '@') }));
+                                    // 确保数量列是数值
+                                    if (qtyIdx_ws !== -1) {
+                                        for (let r = 2; r <= ws.rowCount; r++) {
+                                            const cell = ws.getRow(r).getCell(qtyIdx_ws + 1);
+                                            const n = toNumber(cell.value);
+                                            cell.value = n;
+                                        }
+                                    }
                                     applyBordersForRange(ws, 1, 1, rows.length + 1, cols.length);
                                     autoFitColumns(ws);
                                     await downloadWorkbook(wb, `${sanitizeFileBase(f)}.xlsx`);
@@ -2368,6 +2254,16 @@
                                         const row = wsA.addRow(vals);
                                         const fill = priorityFill(p); if (fill) for (let c = 1; c <= vals.length; c++) row.getCell(c).fill = fill;
                                     });
+                                    // 列格式：除“数量”外文本，数量为数值
+                                    const qtyIdx_A = cols1.indexOf('数量');
+                                    wsA.columns = [...cols1, '对比标记'].map((name, idx) => ({ header: name, key: `a${idx}`, width: Math.max(10, String(name || '').length + 2), numFmt: (idx === qtyIdx_A ? undefined : '@') }));
+                                    if (qtyIdx_A !== -1) {
+                                        for (let r = 2; r <= wsA.rowCount; r++) {
+                                            const cell = wsA.getRow(r).getCell(qtyIdx_A + 1);
+                                            const n = toNumber(cell.value);
+                                            cell.value = n;
+                                        }
+                                    }
                                     applyBordersForRange(wsA, 1, 1, wsA.rowCount, wsA.columnCount);
                                     autoFitColumns(wsA);
 
@@ -2380,6 +2276,16 @@
                                         const row = wsB.addRow(vals);
                                         const fill = priorityFill(p); if (fill) for (let c = 1; c <= vals.length; c++) row.getCell(c).fill = fill;
                                     });
+                                    // 列格式：除“数量”外文本，数量为数值
+                                    const qtyIdx_B = cols2.indexOf('数量');
+                                    wsB.columns = [...cols2, '对比标记'].map((name, idx) => ({ header: name, key: `b${idx}`, width: Math.max(10, String(name || '').length + 2), numFmt: (idx === qtyIdx_B ? undefined : '@') }));
+                                    if (qtyIdx_B !== -1) {
+                                        for (let r = 2; r <= wsB.rowCount; r++) {
+                                            const cell = wsB.getRow(r).getCell(qtyIdx_B + 1);
+                                            const n = toNumber(cell.value);
+                                            cell.value = n;
+                                        }
+                                    }
                                     applyBordersForRange(wsB, 1, 1, wsB.rowCount, wsB.columnCount);
                                     autoFitColumns(wsB);
 
@@ -2413,6 +2319,25 @@
                                         const vals = [r['零件号'], r['供应商零件号'], r['类型'], r['数量']];
                                         for (let j = 0; j < vals.length; j++) { const cell = wsS.getCell(4 + i, 8 + j); cell.value = vals[j]; const fill = priorityFill(p); if (fill) cell.fill = fill; }
                                     });
+                                    // 设置明细列格式（C:F 和 H:K）：除“数量”外文本
+                                    const qtyOffset = 3; // C列为3
+                                    const setDetailFormats = (startCol) => {
+                                        const headers = ['零件号', '供应商零件号', '类型', '数量'];
+                                        headers.forEach((h, idx) => {
+                                            const colIndex = startCol + idx;
+                                            const isQty = (h === '数量');
+                                            wsS.getColumn(colIndex).numFmt = isQty ? undefined : '@';
+                                            if (isQty) {
+                                                for (let r = 4; r <= wsS.rowCount; r++) {
+                                                    const cell = wsS.getCell(r, colIndex);
+                                                    const n = toNumber(cell.value);
+                                                    cell.value = n;
+                                                }
+                                            }
+                                        });
+                                    };
+                                    setDetailFormats(3); // C:F
+                                    setDetailFormats(8); // H:K
                                     // 导线差值列表（复用 wiresDiff 排序与过滤）
                                     wsS.getCell('M1').value = '导线长度差值计算'; wsS.getCell('M1').fill = fillSolid(COLORS.GRAY);
                                     const head3 = ['零件号', '类型', '左表数量', '右表数量', '差值(左-右)'];
@@ -2422,6 +2347,13 @@
                                         const fill = d.diff > 0 ? fillSolid(COLORS.LIGHT_GREEN) : (d.diff < 0 ? fillSolid(COLORS.LIGHT_RED) : undefined);
                                         for (let j = 0; j < vals.length; j++) { const cell = wsS.getCell(4 + i, 13 + j); cell.value = vals[j]; if (fill) cell.fill = fill; }
                                     });
+                                    // 设置导线差值区域列格式：M(N)=文本，O/P/Q=数值
+                                    wsS.getColumn(13).numFmt = '@'; // 零件号
+                                    wsS.getColumn(14).numFmt = '@'; // 类型
+                                    [15, 16, 17].forEach(ci => { wsS.getColumn(ci).numFmt = undefined; });
+                                    for (let r = 4; r <= wsS.rowCount; r++) {
+                                        [15, 16, 17].forEach(ci => { const cell = wsS.getCell(r, ci); const n = toNumber(cell.value); cell.value = n; });
+                                    }
                                     const maxRow = Math.max(6, wsS.rowCount);
                                     applyBordersForRange(wsS, 1, 1, maxRow, 17);
                                     autoFitColumns(wsS);
@@ -2431,11 +2363,29 @@
                                     const ws1 = wb.addWorksheet(sanitizeSheetName(f1, new Set()));
                                     ws1.addRow(cols1); ws1.getRow(1).font = { bold: true }; ws1.getRow(1).fill = fillSolid(COLORS.LIGHT_GRAY);
                                     (filteredRows(f1) || []).forEach(r => ws1.addRow(cols1.map(c => r[c])));
+                                    const qtyIdx_1 = cols1.indexOf('数量');
+                                    ws1.columns = cols1.map((name, idx) => ({ header: name, key: `x1_${idx}`, width: Math.max(10, String(name || '').length + 2), numFmt: (idx === qtyIdx_1 ? undefined : '@') }));
+                                    if (qtyIdx_1 !== -1) {
+                                        for (let r = 2; r <= ws1.rowCount; r++) {
+                                            const cell = ws1.getRow(r).getCell(qtyIdx_1 + 1);
+                                            const n = toNumber(cell.value);
+                                            cell.value = n;
+                                        }
+                                    }
                                     applyBordersForRange(ws1, 1, 1, ws1.rowCount, ws1.columnCount); autoFitColumns(ws1);
 
                                     const ws2 = wb.addWorksheet(sanitizeSheetName(f2, new Set(wb.worksheets.map(w => w.name))));
                                     ws2.addRow(cols2); ws2.getRow(1).font = { bold: true }; ws2.getRow(1).fill = fillSolid(COLORS.LIGHT_GRAY);
                                     (filteredRows(f2) || []).forEach(r => ws2.addRow(cols2.map(c => r[c])));
+                                    const qtyIdx_2 = cols2.indexOf('数量');
+                                    ws2.columns = cols2.map((name, idx) => ({ header: name, key: `x2_${idx}`, width: Math.max(10, String(name || '').length + 2), numFmt: (idx === qtyIdx_2 ? undefined : '@') }));
+                                    if (qtyIdx_2 !== -1) {
+                                        for (let r = 2; r <= ws2.rowCount; r++) {
+                                            const cell = ws2.getRow(r).getCell(qtyIdx_2 + 1);
+                                            const n = toNumber(cell.value);
+                                            cell.value = n;
+                                        }
+                                    }
                                     applyBordersForRange(ws2, 1, 1, ws2.rowCount, ws2.columnCount); autoFitColumns(ws2);
 
                                     await downloadWorkbook(wb, `两表导出_${sanitizeFileBase(f1)}_与_${sanitizeFileBase(f2)}.xlsx`);
@@ -2456,7 +2406,32 @@
                                 try {
                                     if (!window.ExcelJS || selectedFiles.value.length === 0) return;
                                     const n = selectedFiles.value.length;
-                                    // 多于两个文件：两两成对分别导出（模拟人工操作）
+                                    // 工具: 直接运行一次对比（不依赖切换按钮），并等待缓存就绪
+                                    const runCompareFor = async (f1, f2) => {
+                                        const t1 = getTable(f1), t2 = getTable(f2);
+                                        const makeIndexMap = (name, data) => { const map = new WeakMap(); (data || []).forEach((row, idx) => map.set(row, idx)); originalIndexMaps.set(name, map); };
+                                        makeIndexMap(f1, t1.data || []);
+                                        makeIndexMap(f2, t2.data || []);
+                                        const toPlainRows = (rows) => (Array.isArray(rows) ? rows : []).map(r => Object.fromEntries(Object.entries(r)));
+                                        const leftPayload = { name: f1, rows: toPlainRows(t1.data) };
+                                        const rightPayload = { name: f2, rows: toPlainRows(t2.data) };
+                                        const worker = ensureCompareWorker();
+                                        compareBusy.value = true;
+                                        worker.postMessage({ left: leftPayload, right: rightPayload });
+                                    };
+                                    const waitForCompareCache = async (a, b, timeoutMs = 15000) => {
+                                        const start = Date.now();
+                                        return new Promise((resolve, reject) => {
+                                            const tick = () => {
+                                                const ready = compareCache[a] && compareCache[b] && compareCache[a].categories && compareCache[b].categories && !compareBusy.value && compareMode.value;
+                                                if (ready) return resolve(true);
+                                                if (Date.now() - start > timeoutMs) return reject(new Error('对比耗时过长，已超时'));
+                                                setTimeout(tick, 50);
+                                            };
+                                            tick();
+                                        });
+                                    };
+                                    // 多于两个文件：两两成对分别导出（每对：先对比并等待结果 -> 再导出带颜色的对比表）
                                     if (n > 2) {
                                         const originalSel = [...selectedFiles.value];
                                         const originalCompare = compareMode.value;
@@ -2466,7 +2441,8 @@
                                                     const a = originalSel[i];
                                                     const b = originalSel[j];
                                                     selectedFiles.value = [a, b];
-                                                    if (!compareMode.value) await toggleCompare();
+                                                    await runCompareFor(a, b);
+                                                    try { await waitForCompareCache(a, b); } catch (e) { /* 兜底：允许继续导出，但可能为非着色版 */ }
                                                     await exportCurrentSelection();
                                                 }
                                             }
@@ -2483,7 +2459,10 @@
                                         return;
                                     }
 
-                                    // 恰好两个文件
+                                    // 恰好两个文件：先对比并等待结果，再导出
+                                    const [a, b] = selectedFiles.value;
+                                    await runCompareFor(a, b);
+                                    try { await waitForCompareCache(a, b); } catch (e) { /* 兜底继续 */ }
                                     await exportCurrentSelection();
                                 } catch (e) {
                                     alert('导出失败：' + (e && e.message ? e.message : e));
@@ -2571,8 +2550,10 @@
                                 multiCompareMode,
                                 compareBusy,
                                 sheetReady,
+                                sjsReady,
                                 faReady,
                                 sheetBadge,
+                                sjsBadge,
                                 faBadge,
                                 // 回到顶部
                                 showTop,
