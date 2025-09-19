@@ -7,8 +7,8 @@
 - 启动开发服务器
 
 ```bash
-npm install
-npm run dev
+pnpm install
+pnpm run dev
 ```
 
 ## 构建
@@ -16,13 +16,13 @@ npm run dev
 - 常规构建（生成标准多文件产物在 `dist/`）
 
 ```bash
-npm run build
+pnpm run build
 ```
 
 - 单文件构建（生成完全自包含的 `dist/index.html`，内联 JS/CSS/资源）
 
 ```bash
-npm run build:single
+pnpm run build:single
 ```
 
 ## 说明
@@ -120,14 +120,18 @@ flowchart TD
 - 绿：该行与对表中数据一致
 
 > 颜色指示：适用于任何需要图例的地方
->
-> ```json
-> LIGHT_RED: 'FFFFC8C8',   // #FFC8C8 - 未找到
-> ORANGE: 'FFF4B382',      // #F4B382 - 供应商零件号匹配
-> LIGHT_BLUE: 'FF99CCFF',  // #99CCFF - 数量不一致
-> LIGHT_GREEN: 'FFC8FFC8', // #C8FFC8 - 完全一致
-> GRAY: 'FFDCDCDC',        // #DCDCDC - 标题背景
-> LIGHT_GRAY: 'FFF0F0F0',  // #F0F0F0 - 表头背景
+> ```vue
+> export enum COLORS {
+>     // 统一颜色源（ARGB 字符串）
+>     DEFAULT = '',
+>     LIGHT_RED = 'FFFEF2F2',   // red-50  #FEF2F2
+>     ORANGE = 'FFFFF7ED',      // orange-50 #FFF7ED
+>     LIGHT_BLUE = 'FFEFF6FF',  // blue-50 #EFF6FF
+>     LIGHT_GREEN = 'FFF0FDF4', // green-50 #F0FDF4
+>     PURPLE = 'FFF5F3FF',      // purple-50 #F5F3FF
+>     GRAY = 'FFF5F5F5',        // gray-100 更柔和
+>     LIGHT_GRAY = 'FFF9FAFB',  // gray-50 更浅
+> }
 > ```
 
 ### 筛选与排序（UI）
