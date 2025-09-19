@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="zh-CN">
+
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="description" content="BOM表格对比分析工具，支持Excel和HTML文件导入对比" />
+        <meta name="keywords" content="BOM,表格对比,Excel,数据分析" />
+        <title>BOM 对比分析</title>
+
+        <!-- 预连接CDN提高加载速度 -->
+        <link rel="preconnect" href="https://cdn.tailwindcss.com">
+        <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+        <link rel="preconnect" href="https://cdn.jsdelivr.net">
+        <link rel="preconnect" href="https://unpkg.com">
+
+        <!-- Font Awesome 6 CDN with fallback - 使用preload异步加载 -->
+        <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" as="style"
+            onload="this.onload=null;this.rel='stylesheet'"
+            onerror="this.onerror=null; var fallback=document.createElement('link'); fallback.rel='stylesheet'; fallback.href='https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.2/css/all.min.css'; document.head.appendChild(fallback);">
+        <noscript>
+            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+        </noscript>
+
+        <!-- Import Map: 让 import 'vue' 指向 CDN ESM 构件（仅构建/生产时有效）-->
+        <script type="importmap">
+            {
+                "imports": {
+                    "vue": "https://unpkg.com/vue@3.4.38/dist/vue.esm-browser.prod.js"
+                }
+            }
+        </script>
+
+        <!-- 异步加载Tailwind CSS - 避免阻塞渲染 -->
+        <script>
+            (function () {
+                var script = document.createElement('script');
+                script.src = 'https://cdn.tailwindcss.com';
+                script.async = true;
+                document.head.appendChild(script);
+            })();
+        </script>
+    </head>
+
+    <body class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-rose-50">
+        <div id="app"></div>
+
+        <!-- 异步加载ExcelJS和SheetJS - 避免阻塞页面渲染 -->
+        <script>
+            // 异步加载ExcelJS
+            (function () {
+                var script = document.createElement('script');
+                script.src = 'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js';
+                script.async = true;
+                script.onerror = function () {
+                    console.warn('ExcelJS CDN加载失败，将在需要时动态加载');
+                };
+                document.head.appendChild(script);
+            })();
+
+            // 异步加载SheetJS
+            (function () {
+                var script = document.createElement('script');
+                script.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+                script.async = true;
+                script.onerror = function () {
+                    console.warn('SheetJS CDN加载失败，将在需要时动态加载');
+                };
+                document.head.appendChild(script);
+            })();
+        </script>
+
+        <script type="module" src="/src/main.ts"></script>
+    </body>
+
+</html>

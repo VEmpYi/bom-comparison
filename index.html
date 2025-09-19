@@ -2342,17 +2342,27 @@
                                     wsS.getCell('M1').value = '导线长度差值计算'; wsS.getCell('M1').fill = fillSolid(COLORS.GRAY);
                                     const head3 = ['零件号', '类型', '左表数量', '右表数量', '差值(左-右)'];
                                     head3.forEach((h, k) => { const cell = wsS.getCell(3, 13 + k); cell.value = h; cell.fill = fillSolid(COLORS.LIGHT_GRAY); cell.font = { bold: true }; });
-                                    (wiresDiff(f1) || []).forEach((d, i) => {
+                                    const wireList = wiresDiff(f1) || [];
+                                    wireList.forEach((d, i) => {
                                         const vals = [d.pn, d.type, d.q1, d.q2, d.diff];
                                         const fill = d.diff > 0 ? fillSolid(COLORS.LIGHT_GREEN) : (d.diff < 0 ? fillSolid(COLORS.LIGHT_RED) : undefined);
                                         for (let j = 0; j < vals.length; j++) { const cell = wsS.getCell(4 + i, 13 + j); cell.value = vals[j]; if (fill) cell.fill = fill; }
                                     });
-                                    // 设置导线差值区域列格式：M(N)=文本，O/P/Q=数值
+                                    // 设置导线差值区域列格式：M(N)=文本，O/P/Q=数值；仅对已写入的数据行做数值转换，避免空行被置为0
                                     wsS.getColumn(13).numFmt = '@'; // 零件号
                                     wsS.getColumn(14).numFmt = '@'; // 类型
                                     [15, 16, 17].forEach(ci => { wsS.getColumn(ci).numFmt = undefined; });
-                                    for (let r = 4; r <= wsS.rowCount; r++) {
-                                        [15, 16, 17].forEach(ci => { const cell = wsS.getCell(r, ci); const n = toNumber(cell.value); cell.value = n; });
+                                    const startRowW = 4;
+                                    const endRowW = 3 + wireList.length;
+                                    for (let r = startRowW; r <= endRowW; r++) {
+                                        [15, 16, 17].forEach(ci => {
+                                            const cell = wsS.getCell(r, ci);
+                                            // 仅当单元格本身有值时才进行数值转换
+                                            if (cell.value !== undefined && cell.value !== null && String(cell.value).trim() !== '') {
+                                                const n = toNumber(cell.value);
+                                                cell.value = n;
+                                            }
+                                        });
                                     }
                                     const maxRow = Math.max(6, wsS.rowCount);
                                     applyBordersForRange(wsS, 1, 1, maxRow, 17);

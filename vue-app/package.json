@@ -1,0 +1,28 @@
+{
+  "name": "bom-comparison-vue",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "build:multi": "vite build --mode multifile",
+    "build:single": "vite build",
+    "preview": "vite preview",
+    "test:parsing": "tsx samples/test-parsing.mts",
+    "test:parsing:xlsx": "tsx samples/test-parsing-xlsx.mts",
+    "test:clean": "tsx samples/test-clean.mts"
+  },
+  "dependencies": {
+    "exceljs": "^4.4.0",
+    "sheetjs": "^2.0.0",
+    "vue": "^3.4.0",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.0.4",
+    "tsx": "^4.16.2",
+    "vite": "^5.4.0",
+    "vite-plugin-singlefile": "^2.0.1"
+  }
+}
